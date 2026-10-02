@@ -1,0 +1,14 @@
+assign 4 to a;
+print [a];
+read [_x1];
+read [y_1];
+while (< _x1 y_1)
+/*commento su
+due righe**/
+conditional [option (> _x1 y_1) do assign - _x1 y_1 to _x1 ] 
+else assign - _x1 y_1 to y_1 end;
+print[y_1, *(_x1, y_1, 1000)];
+//commento
+
+
+

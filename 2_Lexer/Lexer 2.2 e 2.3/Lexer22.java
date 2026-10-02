@@ -1,0 +1,247 @@
+/* VERSIONE 2.2 CON IDENTIFICATORI
+*
+* un identificatore è una sequenza non vuota di lettere, numeri, ed il simbolo di “underscore” _ ; * la sequenza non comincia con un numero e non può essere composta solo dal simbolo _.
+*
+*  @author  Federico Zerbin, 902129
+*/
+
+import java.io.*; 
+import java.util.*;
+
+public class Lexer22 
+{
+
+    public static int line = 1;
+    private char peek = ' ';
+    
+    private int state = 0;
+    private boolean valid = state == 1;
+    private String lexeme = "";
+    
+    private void readch(BufferedReader br) {
+        try {
+            peek = (char) br.read();
+        } catch (IOException exc) {
+            peek = (char) -1; // ERROR
+        }
+    }
+    
+    //------ sistema di registrazione su hashtable delle keyword
+    private Hashtable<String, Word> keywordsTab = new Hashtable();
+    
+    void reserveWord(Word w) { 
+    	keywordsTab.put(w.lexeme, w); 
+    }
+    
+    public Lexer22(){ //costruttore mette in reserved in hashtable le keyword
+	    reserveWord( Word.assign );
+	    reserveWord( Word.to );
+	    reserveWord( Word.conditional );
+	    reserveWord( Word.option );
+	    reserveWord( Word.dotok );
+	    reserveWord( Word.elsetok );
+	    reserveWord( Word.whiletok );
+	    reserveWord( Word.begin );
+	    reserveWord( Word.end );
+	    reserveWord( Word.print );
+	    reserveWord( Word.read );
+	    
+	    //keywordsTab.forEach((key, value) -> System.out.println(key + " : " + value));
+    }
+    
+
+    public Token lexical_scan(BufferedReader br) {
+        while (peek == ' ' || peek == '\t' || peek == '\n'  || peek == '\r') {
+            if (peek == '\n') line++;
+            readch(br);
+        }
+        
+        switch (peek) {
+            case '!':
+                peek = ' ';
+                return Token.not;
+            
+            case '(':
+            	peek = ' ';
+            	return Token.lpt;
+            	
+            case ')':
+            	peek = ' ';
+            	return Token.rpt;
+            	
+            case '[':
+            	peek = ' ';
+            	return Token.lpq; 
+            	
+            case ']':
+            	peek = ' ';
+            	return Token.rpq; 
+            	
+            case '{':
+            	peek = ' ';
+            	return Token.lpg; 
+            	
+            case '}':
+            	peek = ' ';
+            	return Token.rpg; 
+            	
+            case '+': 
+            	peek = ' ';
+            	return Token.plus;
+            	
+            case '-': 
+            	peek = ' ';
+            	return Token.minus;
+            	
+            case '*': 
+            	peek = ' ';
+            	return Token.mult;
+            	
+            case '/':
+            	peek = ' ';
+            	return Token.div;
+            	
+            case ';':   
+		peek = ' ';
+            	return Token.semicolon;
+            	
+            case ',':   
+		peek = ' ';
+            	return Token.comma;
+	
+            case '&':
+                readch(br);
+                if (peek == '&') {
+                    peek = ' ';
+                    return Word.and;
+                } else {
+                    System.err.println("Erroneous character"
+                            + " after & : "  + peek );
+                    return null;
+                }
+
+	    case '|':
+                readch(br);
+                if (peek == '|') {
+                    peek = ' ';
+                    return Word.or;
+                } else {
+                    System.err.println("Erroneous character"
+                            + " after | : "  + peek );
+                    return null;
+                }
+	    	
+	    case '<':
+	    	readch(br);
+	    	if (peek != '=' & peek != '>') {
+	    	    peek = ' ';
+                    return Word.lt;
+	    	} else if (peek == '=') {
+                    peek = ' ';
+                    return Word.le;
+                    } else if (peek == '>') {
+                    peek = ' ';
+                    return Word.ne;
+                    } else {
+                    System.err.println("Erroneous character"
+                            + " after < : "  + peek );
+                    return null;
+                }
+                
+            case '>':
+	    	readch(br);
+	    	if (peek != '=') {
+                    peek = ' ';
+                    return Word.gt;
+	    	} else if (peek == '=') {
+                    peek = ' ';
+                    return Word.ge;
+                    } else {
+                    System.err.println("Erroneous character"
+                            + " after < : "  + peek );
+                    return null;
+                }
+                
+            case '=':
+                readch(br);
+                if (peek == '=') {
+                    peek = ' ';
+                    return Word.eq;
+                } else {
+                    System.err.println("Erroneous character"
+                            + " after = : "  + peek );
+                    return null;
+                }
+  
+            case (char)-1:
+                return new Token(Tag.EOF);
+                
+                
+            default:  //----------------------------------------------------NUOVO
+            	
+            	if (Character.isLetter(peek) || peek == '_') { 
+            	
+                	String lexeme = "" + peek;
+                	readch(br);
+                	
+                	while (Character.isLetterOrDigit(peek) || peek == '_'){
+				
+				if (Character.isLetterOrDigit(peek)){ if (state == 0 || state == 2) state = 1;}
+                	
+                		else { if (state == 0) state = 2; }
+                	
+                		valid = state == 1;
+                		
+				lexeme = lexeme + peek;
+				readch(br);
+			}
+ 
+			if (valid){
+				if (keywordsTab.containsKey(lexeme)){
+				return keywordsTab.get(lexeme);
+				} else return new Word(Tag.ID, lexeme);
+			} else {System.out.println("Invalid identifier: " +lexeme+ " caused an exception. state: "+state); return null;}
+			
+			
+		} else if (Character.isDigit(peek)) {
+			
+			if (state == 1 || state == 2){state = 1;};
+			valid = state == 1;
+			
+			int value = 0;
+			
+			while (Character.isDigit(peek)){
+			        
+				value = value*10 + (peek-48);
+				readch(br);
+			}
+			
+			return new NumberTok(Tag.NUM, value);
+			
+
+                } 
+                
+                else {
+                 	System.out.println("Erroneous character: " + peek);
+                	return null;}
+               
+               
+         }
+    }
+		
+    public static void main(String[] args) {
+        Lexer22 lex = new Lexer22();
+       
+        String path = "input.txt";
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(path));
+            Token tok;
+            do {
+                tok = lex.lexical_scan(br);
+                System.out.println("Scan: " + tok);
+            } while (tok.tag != Tag.EOF);
+            br.close();
+        } catch (IOException e) {e.printStackTrace();}    
+    }
+
+}

@@ -1,0 +1,362 @@
+---------------------------------------------NOTE DI PROGETTAZIONE -------------------------------------
+@Federico_Zerbin 902129
+
+#1 Automi DFA 
+
+DFA "E4" 
+aggiunta : avevo dimenticato lo spazio (ch = 32) all'inizio della stringa.
+
+DFA "E6"
+remind : funziona al contrario, scorre da index length -1 a 0 cerca ch = 'a'
+
+#Lexer
+Simboli non previsti
+presenza di caratteri illeciti, quali ad esempio # o @ -> avendo montato 
+uno switch, appena non riconosce un simbolo previsto dai casi riporta 
+erroneous character
+
+Classe NumberTok
+dato che Token qui produce nome token = Tag.NUM , e attributo (lessema) 
+il numero stesso non considero l'attributo come una stringa ma come int, 
+attribuisco a ogni Token NumberTok nomi "fittizi"non è necessario usarli.
+		
+Gestione ID: 
+ho montato un sistema di memorizzazione delle keyword che si avvia al momento 
+dell'esecuzione del costruttore.
+
+all'inizializzazione degli attributi del Lexer, si crea keywordsTab. 
+è una Hastable che accetta coppie key = lessema e value = Tag 
+della specifica keyword.
+
+Ho inserito il metodo reserveWord:
+	void reserveWord(Word w) { 
+			keywordsTab.put(w.lexeme, w); 
+		}
+		
+al momento dell'esecuzione del costruttore viene chiamata reserveWord su tutte le 
+keyword, che vengono registrate nella Hashtable con il lessema e il corrispondente Tag. 
+reserveWord( Word.assign );
+ogni volta che Lexer legge un carattere Lettera o _, inizia ad inserirlo in una stringa, 
+e controlla che al momento dell'arrivo di uno spazio (fine parola), la stringa corrisponda 
+o meno a una keyword. inoltre, ho cercato di implementare un controllo di validità dell' 
+ID tramite un mini DFA. se la stringa è valida ed è una keyword, il lessema viene prelevato 
+dalla Hash e restituito come Token Word con Tag corrispondente.
+
+Gestione numeri:
+ogni volta che Lexer legge un carattere Numero, inizializzo un int value a 0.
+questo value mi permette, se ci sono più cifre una dopo l'altra, di non spezzettare 
+il numero ma di considerarlo nella sua forma decimale, tiene conto cioè cifra percifra 
+delle eventuali "cifra delle centinaia" + cifra delle decine etc.
+in quest ottica, il mio peek, ogni numero letto, viene inserito prima come cifra delle 
+unità, sommato a value. ricordando che peek è un char, il corrispondente valore 
+int è peek-48.ad ogni cifra nuova dopo la prima value (il peek precedente) viene 
+moltiplicato per 10 e sommato alla nuova cifra delle unità.
+
+while (Character.isDigit(peek)){
+		
+	value = value*10 + (peek-48);
+	readch(br);
+}
+
+finite le cifre procedo con return new NumberTok(Tag.NUM, value);
+
+Gestione simboli RELOP composti:
+
+//ho letto il primo simbolo corrispondente a un RELOP
+	//leggo il ch successivo con readch(br);
+	//con rami if, a seconda di quello che trovo, imosto peek a ' ' per farlo 
+	avanzare e ritorno il Word giusto.
+		se non c'è un secondo RELOP ma è previsto, printa erroneous character.
+		
+Gestione commenti: 
+nel Lexer 2.1 e 2.2, il simbolo div "/" viene subito resituito come singolo Token.
+nel 2.3, div può indicare la presenza di commento.
+
+riconosciuto un "/" seguo il seguente schema:
+
+//è solo un simbolo div, singolo 
+
+oppure switch annidato		
+	//doppia barra
+		
+	//barra asterisco
+			ciclo //leggo finchè non trovo *
+				//se ho *, continuo a leggere finchè non trovo /
+
+	default switch annidato //se arrivo qui significa che non ho trovato 
+	/ di chiusura printa errore.
+fine switch annidato
+
+//va avanti a leggere e passa al prossimo simbolo e ritorna il token se c'è.
+
+#Parser
+
+//realizzati tutti gli insiemi guida basta seguire le guide, ogni insieme mi dà i case 
+dello switch.seguendo l'ordine dettato dalle produzioni inserisco il metodo corrispondente 
+ad ogni variabile / riscrittura che verrà chiamato ricorsivamente.
+inserisco un match() ad ogni terminale previsto per fare avanzare il parser.
+vedi schemi guida.
+
+#Valutatore GRAMMATICA EXPR ARITMETICHE, quella del parser 3.1
+
+Nel valutatore la chiave è il passaggio di attributi per calcolare il valore di un 
+espressione, è un parser 3.1 arricchito. come per il parser, ho metodi per variabili var() 
+e match per i terminali. 
+Ogni metodo var() ora ritorna un int, che si passa tra le chiamate e corrisponde al 
+risultato parziale della valutazione step dopo step.
+
+Ho costruito alberi sintattici per capire quale fosse la "radice" che generava i valori 
+sintetizzati da passare ai rami successivi.
+
+expr() = term() 	exprp()
+	|		|
+	|		+, -
+	|
+	fact() termp()
+	|		|
+	|		|
+	NUM		*, /
+
+qui expr() fa da "ponte" salvando il valore ritornato dalla sua chiamata, come attributo 
+ereditato. è lui a memorizzare il riultato finale. 
+
+expr() chiama term()
+term() chiama fact() 
+
+gli attributi vengono sintetizzati in primis da fact() quando è riscritto in NUM.
+il valore numerico del token viene estratto tramite conversione del NumberTok e 
+ritornato da fact().
+
+NumberTok number = (NumberTok)look;
+	fact_val = number.value; //value di numbertok
+	match(Tag.NUM);
+	return fact_val;
+
+memorizzati i numeri da utilizzare, 
+a seconda dell'operazione può essere chiamato termp(): 
+/ e * hanno priorità!!
+eredita gli attributi di fact() e dopo la lettura del simbolo di *,/ 
+ci esegue l'operazione, ritornando un nuovo attributo sintetizzato, valore momentaneo
+
+memorizzati i fattori ed eventuali prioritarie, expr() ora chiama exprp():
+eredita gli attributi di fact() e dopo la lettura del simbolo +,- 
+ci esegue l'operazione, ritornando un nuovo attributo sintetizzato, valore momentaneo
+
+expr() erediterà il valore finale di tutte queste operazioni congiunte 
+e lo farà restituire a start().
+
+#Traduttore GRAMMATICA LINGUAGGIO P modificata LL1, quella del parser 3.2
+
+Il traduttore ha lo scopo di scrivere nel file Output.j la traduzione in linguaggio 
+assembly JVM del codice contenuto nel file di input .lft.
+è un parser 3.2 arricchito. come per il parser, ho metodi per variabili var() 
+e match per i terminali. 
+
+la traduzione avviene tramite l'emissione di "pezzi" tradotti in vari e specifici punti del codice,
+vengono emessi comandi JVM e label corrispondenti a indirizzi di memoria.
+
+Gestione principale: prog()
+
+all'inizio la prima cosa che fa la chiamata a prog() è creare una nuova label. 
+int lnext_prog = code.newLabel();
+
+come gli attributi, la label va passata ai chiamati perchè è necessario stamparla al momento 
+giusto. identifica la "prossima istruzione" dopo prog() in linguaggio JVM. 
+
+	statlist(lnext_prog); ---> passa etichetta : istruzione dopo prog
+	code.emit(OpCode.GOto, lnext_prog); --> finita statlist(), sto finendo l'istruzione prog()
+	code.emitLabel(lnext_prog);	 ---> prima del match() emetti la label nuova, è l'istr successiva
+	match(Tag.EOF);
+
+il programma va avanti come un parser / Valutatore passando i valori, ma ogni chiamata a var()
+va gestita diversamente a seconda delle funzioni a cui porta. 
+
+
+catena principale: prog() statlist() statlistp()
+
+statlist() e statlistp() ---> fanno parte dell'istruzione avviata da prog, hanno next uguale!
+
+gli viene passata l'ultima label creata next di prog, ha solo il compito di passarla a sua volta a statlistp().
+per ogni caso, dopo il match(;) chiama stat() 
+		(stat non ha bisogno della label non è mai l'ultima funzione di una produzione.)
+e poi chiama statlistp(), a cui passa la label.
+
+catene interne avviate da stat():
+
+stat() ----> avvia delle chiamate al suo interno
+in quanto iniziatore di catena deve avere una nuova label
+int lnext_stat = code.newLabel(); creata subito. 
+
+per ogni caso A PARTE CONDITIONAL WHILE E {STATLIST} 
+avviene il match() del terminale keyword
+una serie di chiamate a seconda della keyword e prima di terminare stat() 
+SEQUENZA FINALE:
+code.emit(OpCode.GOto, lnext_stat); ---> fine ponte di stat()
+code.emitLabel(lnext_stat);      -----> emetto label
+
+
+ASSIGN
+expr();   
+match(to); 
+legge ID -> ogni id nuovo è un valore che va emesso come "indirizzo"
+		se nella symbol table è già presente, emetto istore col suo address
+		se non c'è emetto istore, valore di count, e poi lo inserisco in symbol table
+idlist(lnext_stat); //continuo con idlist gli passo il next apena creato
+SEQUENZA FINALE
+
+PRINT
+match('[');
+exprlist(lnext_stat); //continuo con exprlist gli passo il next apena creato
+code.emit(OpCode.invokestatic,1); //emetto il metodo per la PRINT stdout
+match(']');
+SEQUENZA FINALE
+		
+READ
+match('[');
+legge ID -> ogni id nuovo è un valore che va emesso come "indirizzo" 
+				se nella symbol table è già presente, tengo il suo address
+				se non c'è emetterò valore di count, e poi lo inserisco in symbol table
+code.emit(OpCode.invokestatic,0); //emetto il metodo per la read stdin
+code.emit(OpCode.istore, reading_address_ID_in_st);//poi emetto istore in address
+idlist(lnext_stat); //continuo con idlist gli passo il next apena creato
+match(']');
+SEQUENZA FINALE
+
+WHILE
+è un ciclo! iniziatore di catena ciclica ha un nuovo next:
+int while_cond = code.newLabel(); //label per ripetere while, nuova
+match(265);
+match('(');
+code.emitLabel(while_cond); --> emetto label appena fatta, marchio inizio ciclo
+				nel mentre verranno emesse le giuste istruzioni da altre var()  
+bexpr(lnext_stat); --> attenzione, bexpr() non ha bisogno della condizione
+				ciclica ma del next di stat()
+				vedi bexpr()
+				qui verrà emesso GOTO con la label "del ramo false" 
+				(prossima istruzione dopo il while)
+				GOTO FALSE lnext_stat     -----> uscita da ciclo
+match(')');          
+stat();
+SEQUENZA FINALE MA 
+emetto GO TO label del while all'inizio GOTO TRUE -> se arrivo qui torno a ciclare
+emetto  lnext_stat -----> fine stat.
+
+CONDITIONAL
+match('[');
+optlist(); ---> mai finale non ha bisogno di label
+match(']');
+stat_aux_conditional(lnext_stat); ----> passa ad aux
+NON EMETTO NULLA
+
+GRAFFA APERTA
+match('{');
+statlist(lnext_stat); ----> passo a statlist()
+match('}');
+NON EMETTO NULLA
+
+aux() 
+si occupa del pezzo dopo conditional, ha sempre il next di stat, lo deve emettere lui.
+saranno il ramo FALSE della conditional. uscita da stat(). 
+ad ogni option infatti, in optlist viene valutata una bexpr in cui viene 
+emessa una label a sua volta per l'altro ramo.
+
+ELSE
+	stat(); 
+	match(267);
+	code.emitLabel(lnext_stat); 
+
+END
+	code.emitLabel(lnext_stat); 
+
+
+catene di espressioni booleane: 
+
+bexpr()
+valuta espressioni boolean!! NUOVA CATENA
+int label_false = lnext_stat; //di default FALSE, è istruzione dopo il conditional 
+							EMESSA DA aux()
+
+int label_true = code.newLabel(); //true = SALTO A NEW LABEL
+
+String b_operator_lexeme = ((Word)look).lexeme; 
+	//salvo il RELOP perchè a seconda del lessema prende un ramo if
+
+match(258); // matcha RELOP
+expr(); //si occuperanno di fare il push degli operandi
+expr();
+if (b_operator_lexeme.equalsIgnoreCase(Word.-NOME OPERATORE-.lexeme)) 
+	code.emit(OpCode.CODICEOPERAT, label_true);
+code.emit(OpCode.GOto, label_false); // dopo if SALTO stampa SEMPRE goto false, lnext_stat
+code.emitLabel(label_true); nuova
+
+catene di id:
+
+idlist() 
+check o inserisce in sym table i nuovi address per gli ID var creandoli con count
+int lnext_idlist = lnext_stat; --> nuova catena per id intermedi 
+legge ID -> ogni id nuovo è un valore che va emesso come "indirizzo" es x = indirizzo 0 
+				se nella symbol table è già presente, tengo il suo address
+				se non c'è gli assegno count
+				lo inserisco in symbol table
+				NON EMETTO NULLA
+match(Tag.ID);
+idlistp(lnext_idlist); ---> continuo catena di idlist
+NON EMETTO NULLA
+
+
+idlistp()
+match , e chiama idlist(lnext_idlist); ---> continuo catena di idlist
+
+catene opzioni: 
+
+optlist()
+nuova catena lista di opzioni con condizioni boolean tipo "if" "do"
+int lnext_optlist = code.newLabel(); --> nuova label per next di opzioni intermedie
+optitem(lnext_optlist); -----> optitem prende la nuova label
+code.emitLabel(lnext_optlist); -----> FINITA OPTLIST; EMETTO 
+optlistp(); 
+
+
+optitem()
+match('(');
+bexpr(lnext_optlist); ---> ha next creato da optlist
+match(')');
+match(263); //do
+stat();
+NON EMETTO NULLA
+
+optlistp()
+se viene chiamato non è NULL,le opzioni trovate sono più di una, devo ridare una label.
+int lnext_optlistp = code.newLabel();
+optitem(lnext_optlistp); ---> ha nuova label 
+code.emitLabel(lnext_optlistp); -----> FINITA OPTLIST; EMETTO
+optlistp();
+
+catene di numeri ed espressioni:
+expr()
+
+int lnext_expr = code.newLabel(); -----> nuova catena 
+
+ESPRESSIONE
+match(simbolo op)
+match(parentesi)
+chiama expr() o exprlist(nuova label)
+match(parentesi)
+PRIMA DEL BREAK EMETTE SIMBOLO operazione
+
+
+NUM: /// se è tag NUM allora il token è un numbertok
+code.emit(OpCode.ldc, ((NumberTok)look).value ); //emetto il numero come costante sulla pila
+PRIMA DEL MATCH
+
+ID: //se è id NON va emesso ma va usato come arg di iload e istore
+solito, leggi id se c'è in st usi address se no count  
+code.emit(OpCode.iload, address_ID); //nelle operazioni, vanno emessi prima iload var1 e var2 poi OP!!
+PRIMA DEL MATCH
+
+exprlist()
+expr();
+exprlistp(lnext_expr);
+
+exprlistp()
+exprlist(lnext_expr);

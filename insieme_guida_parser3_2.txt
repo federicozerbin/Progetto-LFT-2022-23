@@ -1,0 +1,172 @@
+/* Appunti - calcolo insiemi guida per Parser */
+/* ver 3.2 */
+
+---------- Grammatica iniziale: LINGUAGGIO P, NON LL1!!!
+
+    <prog> ::= <statlist> EOF
+
+    <statlist> ::= <stat> <statlistp>
+    <statlistp> ::= ; <stat> <statlistp> || eps
+    <stat> ::=     assign <expr> to <idlist>
+                || print [ <exprlist> ]
+                || read [ <idlist> ]
+                || while ( <bexpr> ) <stat>
+                || conditional [ <optlist> ] end
+                || conditional [ <optlist> ] else <stat> end                
+                || { <statlist> }
+
+    <idlist> ::= ID <idlistp> 
+    <idlistp> ::= , ID <idlistp>  || eps
+
+    <optlist> ::= <optitem> <optlistp>
+    <optlistp> ::= <optitem> <optlistp> || eps
+    <optitem> ::= option ( <bexpr> ) do <stat>
+
+    <bexpr> ::= RELOP <expr> <expr>
+    <expr> ::=  + ( <exprlist> ) || * ( <exprlist> ) || - <expr> <expr> || / <expr> <expr> || NUM || ID
+    <exprlist> ::= <expr> <exprlistp>
+    <exprlistp> ::= , <expr> <exprlistp> || eps
+
+------ nuova Grammatica LL1:
+
+    <prog> ::= <statlist> EOF
+    <statlist> ::= <stat> <statlistp>
+    <statlistp> ::= ; <stat> <statlistp> || eps
+
+    <stat> ::=     assign <expr> to <idlist>
+                || print [ <exprlist> ]
+                || read [ <idlist> ]
+                || while ( <bexpr> ) <stat>
+                || { <statlist> }
+                || conditional [ <optlist> ] <aux>   <------------------------ Fattorizzo
+
+        <aux> ::=   end || else <stat> end 
+
+    <idlist> ::= ID <idlistp> 
+    <idlistp> ::= , ID <idlistp>  || eps
+
+    <optlist> ::= <optitem> <optlistp>
+    <optlistp> ::= <optitem> <optlistp> || eps
+    <optitem> ::= option ( <bexpr> ) do <stat>
+
+    <bexpr> ::= RELOP <expr> <expr>
+    <expr> ::=  + ( <exprlist> ) || * ( <exprlist> ) || - <expr> <expr> || / <expr> <expr> || NUM || ID
+    <exprlist> ::= <expr> <exprlistp>
+    <exprlistp> ::= , <expr> <exprlistp> || eps
+
+Vars => {<prog>, <statlist>, <statlistp>, <stat>, <idlist>, <idlistp>, <optlist>, <optlistp>, <optitem>, 
+                <bexpr>, <expr>, <exprlist>, <exprlistp>, <aux>;}
+
+---------- calcolo FIRST
+
+    NULL(<statlistp>)
+    NULL(<idlistp>)
+    NULL(<optlistp>)
+    NULL(<exprlistp>)
+
+    FIRST(<prog>) = FIRST(<statlist>) = FIRST(<stat>)
+    FIRST(<statlist>) = FIRST(<stat>)
+    FIRST(<statlistp>) = ";"
+    FIRST(<stat>) = "assign", "print", "read", "while", "conditional", "{"
+    FIRST(<idlist>) = "ID" 
+    FIRST(<idlistp>) = ","
+    FIRST(<optlist>) = FIRST(<optitem>)
+    FIRST(<optlistp>) = FIRST(<optitem>) 
+    FIRST(<optitem>) = "option"
+    FIRST(<bexpr>) = "RELOP"
+    FIRST(<expr>) = "+", "-", "*", "/", "ID", "NUM"
+    FIRST(<exprlist>) = FIRST(<expr>)
+    FIRST(<exprlistp>) = ","
+    FIRST(<aux>) = "end", "else"
+
+---------- calcolo FOLLOW
+
+    EOF appartiene a FOLLOW(<prog>)
+    EOF appartiene a FOLLOW(<statlist>)
+    "to" appartiene a FOLLOW(<expr>)
+    "]" appartiene a FOLLOW(<exprlist>)
+    "]" appartiene a FOLLOW(<idlist>)
+    "]" appartiene a FOLLOW(<optlist>)
+    ")" appartiene a FOLLOW(<bexpr>)
+    ")" appartiene a FOLLOW(<exprlist>)
+    "}" appartiene a FOLLOW(<statlist>)
+    "}" appartiene a FOLLOW(<stat>)
+    "end" appartiene a FOLLOW(<statlist>)
+
+    FIRST(<statlistp>) è incluso in FOLLOW(<stat>) MA NULL(<statlistp>) quindi
+    FOLLOW(<statlist>) è incluso in FOLLOW(<stat>)
+    FOLLOW(<statlist>) è incluso in FOLLOW(<statlistp>)
+
+    FOLLOW(<stat>) è incluso in FOLLOW(<idlist>)
+    FOLLOW(<stat>) è incluso in FOLLOW(<aux>)
+
+    FOLLOW(<idlist>) è incluso in FOLLOW(<idlistp>)
+
+    FIRST(<optlistp>) è incluso in FOLLOW(<optitem>) MA NULL(<optlistp>) quindi
+    FOLLOW(<optlist>) è incluso in FOLLOW(<optitem>)
+    FOLLOW(<optlist>) è incluso in FOLLOW(<optlistp>)
+
+    FOLLOW(<optitem>) è incluso in FOLLOW(<stat>)
+    FOLLOW(<bexpr>) è incluso in FOLLOW(<expr>)
+
+    FIRST(<exprlistp>) è incluso in FOLLOW(<expr>) MA NULL(<exprlistp>) quindi
+    FOLLOW(<exprlist>) è incluso in FOLLOW(<expr>)
+    FOLLOW(<exprlist>) è incluso in FOLLOW(<exprlistp>)
+    
+
+        VAR         |   FOLLOW 
+        ----------------------
+        <prog>      |   EOF
+        <statlist>  |   EOF, "}"
+        <statlistp> |   EOF, "}"
+        <stat>      |   EOF, "}", ";", "]", "end", "option"
+        <idlist>    |   EOF, "}", ";", "]", "end", "option"
+        <idlistp>   |   EOF, "}", ";", "]", "end", "option"
+        <optlist>   |   "]"
+        <optlistp>  |   "]"
+        <optitem>   |   "]","option"
+        <bexpr>     |   ")"
+        <bexpr>     |   ")", "]", "to"
+        <exprlist>  |   ")", "]"
+        <exprlistp> |   ")", "]"
+        <aux>       |   EOF, "}", ";", "]", "end", "option"
+
+---------- calcolo INSIEMI GUIDA
+
+    GUIDA(<prog> ::= <statlist> EOF) = FIRST(<statlist>) = {"assign", "print", "read", "while", "conditional", "{"} 
+    GUIDA(<statlist> ::= <stat> <statlistp>) = FIRST(<stat>) = {"assign", "print", "read", "while", "conditional", "{"} 
+    GUIDA(<statlistp> ::= ; <stat> <statlistp> = {";"}
+    GUIDA(<statlistp> ::= eps) = FOLLOW(<statlistp>) perché qui NULL(<statlistp>) = { EOF, "}"} 
+    
+    GUIDA(<stat> ::= assign <expr> to <idlist>) = {"assign"}
+    GUIDA(<stat> ::= print [ <exprlist> ]) = {"print"}
+    GUIDA(<stat> ::= read [ <idlist> ]) = {"read"}
+    GUIDA(<stat> ::= while ( <bexpr> ) <stat>) = {"while"}
+    GUIDA(<stat> ::= { <statlist> }) = {"{"}
+
+    GUIDA(<stat> ::= conditional [ <optlist> ] <aux>) = {"conditional"}
+    GUIDA(<aux> ::= end) = {"end"}
+    GUIDA(<aux> ::= else <stat> end) = {"else"}
+      
+    GUIDA(<idlist> ::= ID <idlistp>) = {"ID"}
+    GUIDA(<idlistp> ::= , ID <idlistp>) = {","}
+    GUIDA(<idlistp> ::= eps) = FOLLOW(<idlistp>) perché qui NULL(<idlistp>) = { EOF, "}", ";", "]", "end", "option"}
+
+    GUIDA(<optlist> ::= <optitem> <optlistp>) = FIRST(<optitem>) = {"option"}
+    GUIDA(<optlistp> ::= <optitem> <optlistp>) = FIRST(<optitem>) = {"option"}
+    GUIDA(<optlistp> ::= eps) = FOLLOW(<optlistp>) perché qui NULL(<optlistp>) = {"]"}
+    GUIDA(<optitem> ::= option ( <bexpr> ) do <stat>) = FIRST(<optitem>) = {"option"}
+
+    GUIDA(<bexpr> ::= RELOP <expr> <expr>) = {"RELOP"}
+
+    GUIDA(<expr> ::=  + ( <exprlist> )) = {"+"}
+    GUIDA(<expr> ::= * ( <exprlist> )) = {"*"}
+    GUIDA(<expr> ::= - <expr> <expr> ) = {"-"}
+    GUIDA(<expr> ::= / <expr> <expr>) = {"/"}
+    GUIDA(<expr> ::= NUM) = {"NUM"}
+    GUIDA(<expr> ::= ID) = {"ID"}
+
+    GUIDA(<exprlist> ::= <expr> <exprlistp>) = FIRST(<expr>) = {"+", "-", "*", "/", "ID", "NUM"}
+
+    GUIDA(<exprlistp> ::= , <expr> <exprlistp>) = {","}
+    GUIDA(<exprlistp> ::= eps) = FOLLOW(<exprlistp>) perché qui NULL(<exprlistp>) = {")", "]"}

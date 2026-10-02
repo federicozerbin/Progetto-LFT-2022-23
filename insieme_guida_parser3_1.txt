@@ -1,0 +1,62 @@
+/* Appunti - calcolo insiemi guida per Parser */
+/* ver 3.1 */
+
+---------- Grammatica
+    <start> ::= <expr> EOF
+    <expr> ::= <term> <exprp>
+    <exprp> ::= + <term> <exprp> || - <term> <exprp> || eps
+    <term> ::=  <fact> <termp>
+    <termp> ::= * <fact> <termp> || / <fact> <termp> || eps
+    <fact> ::= ( <expr> ) || NUM
+
+    Vars => {<start>, <expr>, <exprp>, <term>, <termp>, <fact>;}
+
+---------- calcolo FIRST
+    NULL(<exprp>)
+    NULL(<termp>)
+    FIRST(<start>) = FIRST(<expr>) =  "(", NUM
+    FIRST(<expr>) = FIRST(<term>) =  "(", NUM
+    FIRST(<exprp>) = "+", "-"
+    FIRST(<term>) = FIRST(<fact>) = "(", NUM
+    FIRST(<termp>) = "*", "/"
+    FIRST(<fact>) = "(", NUM
+
+---------- calcolo FOLLOW
+    EOF appartiene a FOLLOW(<start>)
+    EOF appartiene a FOLLOW(<expr>)
+
+    FIRST(<exprp>) è incluso in FOLLOW(<term>) MA NULL(<exprp>) quindi
+    FOLLOW(<expr>) è incluso in FOLLOW(<term>)
+    FOLLOW(<expr>) è incluso in FOLLOW(<exprp>)
+
+    FIRST(<termp>) è incluso in FOLLOW(<fact>) MA NULL(<termp>) quindi
+    FOLLOW(<term>) è incluso in FOLLOW(<fact>)
+    FOLLOW(<term>) è incluso in FOLLOW(<termp>)
+
+
+        VAR     | FOLLOW 
+        ----------------------
+        <start> | EOF
+        <expr>  | EOF, ")"
+        <exprp> | EOF, ")"
+        <term>  | "+", "-", EOF, ")"
+        <termp> | "+", "-", EOF, ")"
+        <fact>  | "+", "-", EOF, ")"
+
+---------- calcolo INSIEMI GUIDA
+
+    GUIDA(<start> ::= <expr> EOF) = {"(", NUM}
+
+    GUIDA(<expr> ::= <term> <exprp>) = {"(", NUM}
+
+    GUIDA(<exprp> ::= + <term> <exprp>) = {"+"}
+    GUIDA(<exprp> ::= - <term> <exprp>) = {"-"}
+    GUIDA(<exprp> ::= eps) = {")", EOF}
+
+    GUIDA(<term> ::=  <fact> <termp>) = {"(", NUM}
+
+    GUIDA(<termp> ::= * <fact> <termp>) = {"*"}
+    GUIDA(<termp> ::= / <fact> <termp>) = {"/"}
+    GUIDA(<termp> ::= eps) = {"+", "-", ")", EOF}
+    GUIDA(<fact> ::= ( <expr> ))
+    GUIDA(<fact> ::= NUM) = {"(", NUM}
